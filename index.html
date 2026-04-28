@@ -3,79 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vtik | الموقع الجديد</title>
+    <title>Vtik | الاختبار النهائي</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --main: #fe2c55; --bg: #000; }
-        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; }
-        .page { display: none; height: 100vh; }
-        .active { display: block; }
-        .feed { height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; }
-        .video-card { height: 100vh; scroll-snap-align: start; display: flex; align-items: center; position: relative; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .nav { position: fixed; bottom: 0; width: 100%; height: 60px; background: #000; display: flex; border-top: 1px solid #222; }
-        .nav-item { flex: 1; text-align: center; color: #888; text-decoration: none; padding-top: 10px; font-size: 12px; }
-        .nav-item.active { color: white; }
+        body { background: #000; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
+        .btn { background: #fe2c55; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-size: 18px; width: 80%; }
+        #status { margin-top: 20px; color: yellow; }
+        #preview { width: 100%; max-width: 300px; margin-top: 20px; border-radius: 10px; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="home" class="page active">
-        <div id="videoFeed" class="feed"></div>
-    </div>
-
-    <div id="editor" class="page">
-        <div style="padding: 50px; text-align: center;">
-            <input type="file" id="vFile" accept="video/*" onchange="uploadFile(event)">
-            <p id="status"></p>
-        </div>
-    </div>
-
-    <nav class="nav">
-        <a href="#" class="nav-item active" onclick="switchPage('home')">🏠 الرئيسية</a>
-        <a href="#" class="nav-item" onclick="switchPage('editor')">➕ نشر</a>
-    </nav>
+    <h2>رفع فيديو جديد 🎬</h2>
+    
+    <input type="file" id="vFile" accept="video/*" style="display:none" onchange="handleFile(event)">
+    <button class="btn" onclick="document.getElementById('vFile').click()">1. اختيار فيديو</button>
+    
+    <video id="preview" controls></video>
+    
+    <br><br>
+    <button id="uploadBtn" class="btn" style="display:none; background:#25d366" onclick="startUpload()">2. نشر الآن 🚀</button>
+    
+    <div id="status"></div>
 
     <script>
-        // بيانات سوبابيز الجديدة الخاصة بك
+        // الروابط الجديدة
         const SB_URL = "https://filnjwkcbfcdbkajqwji.supabase.co";
         const SB_KEY = "Sb_publishable_uP9HU42MKGX5MZ6LMT_-VQ_8rYtoiC8";
         const PYTHON_API = "https://Vtikeg.pythonanywhere.com/api/upload-from-web";
 
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        let selectedFile = null;
 
-        function switchPage(id) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            if(id === 'home') loadVideos();
-        }
-
-        async function uploadFile(e) {
-            const file = e.target.files[0];
-            const status = document.getElementById('status');
-            const fd = new FormData();
-            fd.append('video', file);
-            fd.append('user_name', 'User_New');
-
-            status.innerText = "⏳ جاري الإرسال لتليجرام...";
-            try {
-                const res = await fetch(PYTHON_API, { method: 'POST', body: fd });
-                if(res.ok) status.innerText = "✅ نجح الإرسال!";
-                else status.innerText = "❌ فشل الإرسال";
-            } catch (err) { status.innerText = "❌ خطأ اتصال"; }
-        }
-
-        async function loadVideos() {
-            const { data } = await supabase.from('vtik_posts').select('*').order('created_at', { ascending: false });
-            if(data) {
-                document.getElementById('videoFeed').innerHTML = data.map(v => `
-                    <div class="video-card">
-                        <video src="${v.video_url}" loop onclick="this.paused?this.play():this.pause()"></video>
-                    </div>
-                `).join('');
+        function handleFile(e) {
+            selectedFile = e.target.files[0];
+            if(selectedFile) {
+                document.getElementById('preview').src = URL.createObjectURL(selectedFile);
+                document.getElementById('preview').style.display = "block";
+                document.getElementById('uploadBtn').style.display = "inline-block";
+                document.getElementById('status').innerText = "تم اختيار الملف بنجاح.";
             }
         }
-        loadVideos();
+
+        async function startUpload() {
+            const status = document.getElementById('status');
+            const btn = document.getElementById('uploadBtn');
+
+            status.innerText = "⏳ جاري محاولة الاتصال بالسيرفر...";
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            formData.append('user_name', 'Vtik_User');
+
+            try {
+                const response = await fetch(PYTHON_API, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = "✅ نجح! وصل الفيديو لتليجرام.<br>File ID: " + result.telegram_file_id;
+                    alert("تم الإرسال بنجاح!");
+                } else {
+                    status.innerText = "❌ السيرفر رد بخطأ: " + result.error;
+                    alert("خطأ من السيرفر: " + result.error);
+                }
+            } catch (error) {
+                status.innerText = "❌ فشل الاتصال تماماً بـ PythonAnywhere";
+                alert("تعذر الوصول للسيرفر. تأكد من عمل Reload في PythonAnywhere");
+            } finally {
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
