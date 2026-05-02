@@ -2,81 +2,47 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vtik | الاختبار النهائي</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Vtik Quick Upload</title>
     <style>
-        body { background: #000; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        .btn { background: #fe2c55; color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-size: 18px; width: 80%; }
-        #status { margin-top: 20px; color: yellow; }
-        #preview { width: 100%; max-width: 300px; margin-top: 20px; border-radius: 10px; display: none; }
+        body { background: #000; color: #fff; text-align: center; font-family: sans-serif; padding: 50px; }
+        .box { border: 2px dashed #444; padding: 40px; border-radius: 20px; }
+        #msg { margin-top: 20px; color: #fe2c55; }
     </style>
 </head>
 <body>
-
-    <h2>رفع فيديو جديد 🎬</h2>
-    
-    <input type="file" id="vFile" accept="video/*" style="display:none" onchange="handleFile(event)">
-    <button class="btn" onclick="document.getElementById('vFile').click()">1. اختيار فيديو</button>
-    
-    <video id="preview" controls></video>
-    
-    <br><br>
-    <button id="uploadBtn" class="btn" style="display:none; background:#25d366" onclick="startUpload()">2. نشر الآن 🚀</button>
-    
-    <div id="status"></div>
+    <div class="box">
+        <h2>ارفع فيديو (5 ثواني)</h2>
+        <input type="file" id="up" accept="video/*">
+        <div id="msg"></div>
+    </div>
 
     <script>
-        // الروابط الجديدة
-        const SB_URL = "https://filnjwkcbfcdbkajqwji.supabase.co";
-        const SB_KEY = "Sb_publishable_uP9HU42MKGX5MZ6LMT_-VQ_8rYtoiC8";
-        const PYTHON_API = "https://Vtikeg.pythonanywhere.com/api/upload-from-web";
+        document.getElementById('up').onchange = async function() {
+            const file = this.files[0];
+            if(!file) return;
 
-        let selectedFile = null;
+            const msg = document.getElementById('msg');
+            msg.innerText = "⏳ جاري الرفع... لا تغلق الصفحة";
 
-        function handleFile(e) {
-            selectedFile = e.target.files[0];
-            if(selectedFile) {
-                document.getElementById('preview').src = URL.createObjectURL(selectedFile);
-                document.getElementById('preview').style.display = "block";
-                document.getElementById('uploadBtn').style.display = "inline-block";
-                document.getElementById('status').innerText = "تم اختيار الملف بنجاح.";
-            }
-        }
-
-        async function startUpload() {
-            const status = document.getElementById('status');
-            const btn = document.getElementById('uploadBtn');
-
-            status.innerText = "⏳ جاري محاولة الاتصال بالسيرفر...";
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('video', selectedFile);
-            formData.append('user_name', 'Vtik_User');
+            const fd = new FormData();
+            fd.append('video', file); // تأكد أن الاسم مطابق لما في البايثون
 
             try {
-                const response = await fetch(PYTHON_API, {
-                    method: 'POST',
-                    body: formData
+                const res = await fetch("https://Vtikeg.pythonanywhere.com/api/upload-from-web", {
+                    method: "POST",
+                    body: fd
                 });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    status.innerHTML = "✅ نجح! وصل الفيديو لتليجرام.<br>File ID: " + result.telegram_file_id;
-                    alert("تم الإرسال بنجاح!");
+                const data = await res.json();
+                if(res.ok) {
+                    msg.innerText = "✅ نجح الإرسال لتليجرام!";
+                    alert("تم الرفع بنجاح");
                 } else {
-                    status.innerText = "❌ السيرفر رد بخطأ: " + result.error;
-                    alert("خطأ من السيرفر: " + result.error);
+                    msg.innerText = "❌ خطأ: " + (data.error || "فشل السيرفر");
                 }
-            } catch (error) {
-                status.innerText = "❌ فشل الاتصال تماماً بـ PythonAnywhere";
-                alert("تعذر الوصول للسيرفر. تأكد من عمل Reload في PythonAnywhere");
-            } finally {
-                btn.disabled = false;
+            } catch(e) {
+                msg.innerText = "❌ تعذر الاتصال بالسيرفر";
             }
-        }
+        };
     </script>
 </body>
 </html>
