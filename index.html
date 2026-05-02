@@ -7,112 +7,138 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background: #0b0b0b; color: white; font-family: sans-serif; text-align: center; margin: 0; padding-bottom: 80px; }
-        .audio-card { background: #1a1a1a; margin: 15px; padding: 20px; border-radius: 15px; border-left: 5px solid #fe2c55; }
+        .audio-card { background: #1a1a1a; margin: 15px; padding: 20px; border-radius: 15px; border-left: 5px solid #fe2c55; text-align: right; }
         audio { width: 100%; margin-top: 10px; height: 35px; }
-        .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; height: 60px; border-top: 1px solid #333; }
-        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #888; }
+        .nav { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; height: 60px; border-top: 1px solid #333; z-index: 1000; }
+        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #888; font-size: 14px; }
         .nav-item.active { color: #fe2c55; font-weight: bold; }
-        .btn-upload { background: #fe2c55; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 18px; cursor: pointer; margin-top: 20px; }
-        .page { display: none; padding: 20px; }
+        .btn-upload { background: #fe2c55; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 18px; cursor: pointer; margin-top: 20px; width: 80%; }
+        .page { display: none; padding: 20px; min-height: 100vh; }
         .active-page { display: block; }
+        #status { margin-top: 15px; color: #fbc02d; }
     </style>
 </head>
 <body>
 
     <div id="homePage" class="page active-page">
         <h2>🎧 المقاطع الصوتية</h2>
-        <div id="audioList">جاري التحميل...</div>
+        <div id="audioList">جاري تحميل الأصوات...</div>
     </div>
 
     <div id="uploadPage" class="page">
         <h2>⬆️ رفع ملف صوتي</h2>
-        <div style="border: 2px dashed #444; padding: 40px; border-radius: 20px;">
-            <input type="file" id="audioFile" accept="audio/*" style="display:none" onchange="updateFileName()">
-            <button class="btn-upload" onclick="document.getElementById('audioFile').click()">اختر ملف MP3</button>
+        <div style="border: 2px dashed #444; padding: 40px; border-radius: 20px; margin: 10px;">
+            <input type="file" id="audioFile" accept="audio/*" style="display:none">
+            <button class="btn-upload" onclick="document.getElementById('audioFile').click()">1. اختيار ملف MP3</button>
             <p id="fileName" style="color: #888; margin-top: 10px;">لم يتم اختيار ملف</p>
             <br>
-            <button id="sendBtn" class="btn-upload" style="background:#25d366; display:none" onclick="uploadAudio()">نشر الآن 🚀</button>
+            <button id="sendBtn" class="btn-upload" style="background:#25d366; display:none;" onclick="uploadAudio()">2. نشر الآن 🚀</button>
         </div>
         <p id="status"></p>
     </div>
 
     <nav class="nav">
-        <div class="nav-item active" id="navHome" onclick="showPage('homePage')">🏠 الرئيسية</div>
-        <div class="nav-item" id="navUpload" onclick="showPage('uploadPage')">➕ رفع صوت</div>
+        <div class="nav-item active" id="btnNavHome" onclick="showPage('homePage')">🏠 الرئيسية</div>
+        <div class="nav-item" id="btnNavUpload" onclick="showPage('uploadPage')">➕ رفع صوت</div>
     </nav>
 
     <script>
+        // --- إعدادات الربط ---
         const SB_URL = "https://filnjwkcbfcdbkajqwji.supabase.co";
         const SB_KEY = "Sb_publishable_uP9HU42MKGX5MZ6LMT_-VQ_8rYtoiC8";
         const PYTHON_API = "https://Vtikeg.pythonanywhere.com/api/upload-from-web";
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
+        // --- وظيفة التنقل بين الصفحات ---
         function showPage(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
             document.getElementById(id).classList.add('active-page');
-            if(id === 'homePage') { 
-                document.getElementById('navHome').classList.add('active');
-                loadAudios(); 
+            
+            if(id === 'homePage') {
+                document.getElementById('btnNavHome').classList.add('active');
+                loadAudios();
             } else {
-                document.getElementById('navUpload').classList.add('active');
+                document.getElementById('btnNavUpload').classList.add('active');
             }
         }
 
-        function updateFileName() {
-            const file = document.getElementById('audioFile').files[0];
+        // --- تحديث اسم الملف عند الاختيار ---
+        document.getElementById('audioFile').onchange = function() {
+            const file = this.files[0];
             if(file) {
-                document.getElementById('fileName').innerText = file.name;
+                document.getElementById('fileName').innerText = "تم اختيار: " + file.name;
                 document.getElementById('sendBtn').style.display = 'inline-block';
             }
-        }
+        };
 
+        // --- وظيفة الرفع للسيرفر ---
         async function uploadAudio() {
-            const file = document.getElementById('audioFile').files[0];
+            const fileInput = document.getElementById('audioFile');
             const status = document.getElementById('status');
             const btn = document.getElementById('sendBtn');
-            
-            status.innerText = "⏳ جاري الإرسال لتليجرام...";
+
+            if(!fileInput.files[0]) return alert("من فضلك اختر ملفاً أولاً");
+
+            status.innerText = "⏳ جاري الرفع لتليجرام...";
             btn.disabled = true;
 
             const fd = new FormData();
-            fd.append('video', file); // سنترك الاسم 'video' مؤقتاً ليتوافق مع كود البايثون الحالي أو غيره لـ 'audio'
+            fd.append('audio', fileInput.files[0]);
 
             try {
-                const res = await fetch(PYTHON_API, { method: "POST", body: fd });
+                const res = await fetch(PYTHON_API, {
+                    method: "POST",
+                    body: fd
+                });
+
                 if(res.ok) {
-                    status.innerText = "✅ نجح الرفع! سيظهر هنا بمجرد ربط البوت لسوبابيز.";
-                    alert("تم الرفع بنجاح");
+                    alert("✅ نجح الرفع! سيظهر المقطع فور معالجته.");
                     showPage('homePage');
                 } else {
-                    status.innerText = "❌ فشل السيرفر في الرفع.";
+                    const err = await res.json();
+                    alert("❌ خطأ من السيرفر: " + (err.error || "فشل الرفع"));
                 }
             } catch(e) {
-                status.innerText = "❌ تعذر الاتصال بالسيرفر.";
+                alert("❌ تعذر الاتصال بسيرفر PythonAnywhere");
             } finally {
                 btn.disabled = false;
+                status.innerText = "";
             }
         }
 
+        // --- جلب الأصوات من سوبابيز ---
         async function loadAudios() {
             const list = document.getElementById('audioList');
-            const { data, error } = await supabase.from('vtik_posts').select('*').order('created_at', { ascending: false });
+            const { data, error } = await supabaseClient
+                .from('vtik_posts')
+                .select('*')
+                .order('created_at', { ascending: false });
             
+            if(error) {
+                list.innerHTML = "خطأ في تحميل البيانات.";
+                return;
+            }
+
             if(data && data.length > 0) {
                 list.innerHTML = data.map(a => `
                     <div class="audio-card">
-                        <b>👤 ${a.user_name || 'مجهول'}</b>
+                        <b>👤 ${a.user_name || 'مستخدم Vtik'}</b>
                         <audio controls>
                             <source src="${a.video_url}" type="audio/mpeg">
+                            متصفحك لا يدعم تشغيل الصوت.
                         </audio>
                     </div>
                 `).join('');
             } else {
-                list.innerHTML = "لا توجد ملفات صوتية حالياً.";
+                list.innerHTML = "لا توجد مقاطع صوتية متوفرة حالياً.";
             }
         }
 
-        loadAudios();
+        // تشغيل التحميل عند فتح الموقع
+        window.onload = loadAudios;
     </script>
 </body>
 </html>
